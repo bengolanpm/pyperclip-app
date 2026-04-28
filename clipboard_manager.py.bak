@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+import rumps
+import pyperclip
+
+MAX_ITEMS = 25
+PREVIEW_LEN = 70
+
+
+class ClipboardManager(rumps.App):
+    def __init__(self):
+        super().__init__("📋", quit_button=None)
+        self.history = []
+        self.last_clip = ""
+        self._rebuild_menu()
+
+    @rumps.timer(0.5)
+    def check_clipboard(self, _):
+        try:
+            current = pyperclip.paste()
+            if current and current != self.last_clip:
+                self.last_clip = current
+                if current in self.history:
+                    self.history.remove(current)
+                self.history.insert(0, current)
+                if len(self.history) > MAX_ITEMS:
+                    self.history.pop()
+                self._rebuild_menu()
+        except Exception:
+            pass
+
+    def _preview(self, text, idx):
+        preview = text[:PREVIEW_LEN].replace("\n", "↵").replace("\r", "")
+        suffix = "…" if len(text) > PREVIEW_LEN else ""
+        return f"{idx}.  {preview}{suffix}"
+
+    def _rebuild_menu(self):
+        self.menu.clear()
+        count = len(self.history)
+        self.title = f"📋 {count}" if count else "📋"
+
+        if not self.history:
+            self.menu.add(rumps.MenuItem("(clipboard is empty)"))
+        else:
+            for i, text in enumerate(self.history, 1):
+                mi = rumps.MenuItem(self._preview(text, i), callback=self._select)
+                mi.full_text = text
+                self.menu.add(mi)
+
+        self.menu.add(rumps.separator)
+        self.menu.add(rumps.MenuItem("Clear History", callback=self._clear))
+        self.menu.add(rumps.separator)
+        self.menu.add(rumps.MenuItem("Quit", callback=rumps.quit_application))
+
+    def _select(self, sender):
+        pyperclip.copy(sender.full_text)
+        self.last_clip = sender.full_text
+        # Bubble selected item to top
+        if sender.full_text in self.history:
+            self.history.remove(sender.full_text)
+            self.history.insert(0, sender.full_text)
+            self._rebuild_menu()
+
+    def _clear(self, _):
+        self.history.clear()
+        self.last_clip = ""
+        self._rebuild_menu()
+
+
+if __name__ == "__main__":
+    ClipboardManager().run()
