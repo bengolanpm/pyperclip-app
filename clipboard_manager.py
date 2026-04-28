@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import rumps
+import subprocess
+import threading
 from AppKit import (
     NSPasteboard, NSPasteboardTypeString,
     NSPasteboardTypeTIFF, NSPasteboardTypePNG,
@@ -116,6 +118,18 @@ class ClipboardManager(rumps.App):
             self.history.remove(item)
             self.history.insert(0, item)
             self._rebuild_menu()
+
+        # Auto-paste into wherever the cursor is
+        def _paste():
+            import time
+            time.sleep(0.15)  # let the menu finish closing first
+            subprocess.run(
+                ["osascript", "-e",
+                 'tell application "System Events" to keystroke "v" using command down'],
+                capture_output=True,
+            )
+
+        threading.Thread(target=_paste, daemon=True).start()
 
     def _clear(self, _):
         self.history.clear()
